@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Web Zona Kerentaan Seismik</title>
+    <title>Web Zona Kerentaan Seismik - Lantai G</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -20,12 +20,24 @@
         .info-box { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 8px 15px; border-radius: 8px; font-size: 13px; border: 1px solid #ccc; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
         .label-ruang { background: rgba(255, 255, 255, 0.85); border: 1px solid #333; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); cursor: pointer; }
+
+        /* CSS UNTUK TOMBOL LANTAI */
+        .floor-controls { position: absolute; top: 70px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .floor-btn { width: 45px; height: 45px; background: white; border: 2px solid #333; border-radius: 8px; font-size: 16px; font-weight: bold; color: #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
+        .floor-btn:hover { background: #f0f0f0; }
+        .floor-btn.active { background: #333; color: white; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     <div class="info-box" id="info-gps">Menunggu GPS...</div>
+
+    <!-- TOMBOL NAVIGASI LANTAI (G Aktif) -->
+    <div class="floor-controls">
+        <button class="floor-btn active" onclick="window.location.href='index.html'">G</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai1.html'">F1</button>
+    </div>
 
     <button class="btn-evakuasi" onclick="aktifkanEvakuasi()">🚨 JALUR EVAKUASI</button>
     <button class="btn-loc" onclick="lacakSaya()">📍 Posisi Saya</button>
@@ -52,28 +64,9 @@
 
         // --- 2. DATA RUANGAN ---
        var ruangan = [
-            { 
-                nama: "Pintu Lobi Utama", 
-                lat: -7.785653, 
-                lng: 110.394086,
-                foto: "", // Ganti dengan nama file foto Anda nanti
-                info: "Pintu Keluar Utama.<br><b></b>"
-            },
-            { 
-                nama: "Pintu Barat", 
-                lat: -7.785777, 
-                lng: 110.393765,
-                foto: "", // Ganti dengan nama file foto Anda nanti
-                info: "Pintu Keluar Barat.<br><b></b>"
-            },
-            { 
-                nama: "Pintu Timur", 
-                lat:   -7.785775, 
-                lng: 110.394386,
-                foto: " ", // Ganti dengan nama file foto Anda nanti
-                info: "Pintu Keluar Timur.<br><b></b>"
-                      
-            }
+            { nama: "Pintu Lobi Utama", lat: -7.785653, lng: 110.394086, foto: "", info: "Pintu Keluar Utama.<br><b></b>" },
+            { nama: "Pintu Barat", lat: -7.785777, lng: 110.393765, foto: "", info: "Pintu Keluar Barat.<br><b></b>" },
+            { nama: "Pintu Timur", lat: -7.785775, lng: 110.394386, foto: " ", info: "Pintu Keluar Timur.<br><b></b>" }
         ];
 
         ruangan.forEach(function(r) {
@@ -91,7 +84,6 @@
         });
 
         // --- 3. LOGIKA JALUR EVAKUASI GEOJSON ---
-        
         var dataJalurGeoJSON = {
             "type": "FeatureCollection",
             "name": "Jalur Evakuasi",
@@ -102,21 +94,18 @@
         };
 
         var semuaTitikRute = [];
-        
-        // Menyimpan semua lokasi Titik Kumpul dalam bentuk Array
         var dataTitikKumpul = [
             { lat: -7.785562, lng: 110.394250, label: "TITIK KUMPUL 1" },
             { lat: -7.785662, lng: 110.393662, label: "TITIK KUMPUL 2" }
         ];
 
-        // Ekstrak semua titik koordinat dari GeoJSON untuk dicari jarak terdekatnya nanti
         function prosesGeoJSON(geojsonData) {
             semuaTitikRute = [];
             var features = geojsonData.features;
             features.forEach(function(feature) {
                 var coords = feature.geometry.coordinates;
                 coords.forEach(function(c) {
-                    semuaTitikRute.push(L.latLng(c[1], c[0])); // Leaflet menggunakan [Lat, Lng]
+                    semuaTitikRute.push(L.latLng(c[1], c[0])); 
                 });
             });
         }
@@ -125,29 +114,25 @@
         var layerEvakuasiStatik;
         var garisDinamis;
         var modeEvakuasiAktif = false;
-        var titikKumpulMarkers = []; // Array untuk menampung banyak marker
+        var titikKumpulMarkers = []; 
 
         function aktifkanEvakuasi() {
             modeEvakuasiAktif = true;
             
-            // Munculkan Semua Titik Kumpul dari array
             if (titikKumpulMarkers.length === 0) {
                 dataTitikKumpul.forEach(function(tk) {
                     var marker = L.circleMarker([tk.lat, tk.lng], {
                         radius: 12, color: 'white', fillColor: '#28a745', fillOpacity: 1, weight: 3
                     }).bindTooltip("<b>" + tk.label + "</b>", { permanent: false, direction: "top" });
-                    
                     titikKumpulMarkers.push(marker);
                 });
             }
             
-            // Tampilkan semua marker titik kumpul yang sudah dibuat
             titikKumpulMarkers.forEach(function(marker) {
                 marker.addTo(map);
                 marker.openTooltip();
             });
 
-            // Gambar Jalur Merah Statik langsung menggunakan render GeoJSON dari Leaflet
             if (!layerEvakuasiStatik) {
                 layerEvakuasiStatik = L.geoJSON(dataJalurGeoJSON, {
                     style: { color: "#dc3545", weight: 6, dashArray: "10, 10", opacity: 0.8 }
@@ -157,11 +142,9 @@
             perbaruiGarisDinamis(userMarker.getLatLng());
         }
 
-        // Cari titik merah terdekat dari pengguna
         function dapatkanRuteDinamis(posisiUser) {
             var jarakTerdekat = Infinity;
             var nodeTerdekat = null;
-            
             for (var i = 0; i < semuaTitikRute.length; i++) {
                 var jarak = posisiUser.distanceTo(semuaTitikRute[i]);
                 if (jarak < jarakTerdekat) {
@@ -169,8 +152,6 @@
                     nodeTerdekat = semuaTitikRute[i];
                 }
             }
-            
-            // Mengarahkan pengguna langsung ke titik jalur merah terdekat
             if (nodeTerdekat) {
                 return [posisiUser, nodeTerdekat];
             }
@@ -179,11 +160,8 @@
 
         function perbaruiGarisDinamis(posisiUser) {
             if (!modeEvakuasiAktif || posisiUser.lat === 0 || semuaTitikRute.length === 0) return;
-            
             if (garisDinamis) map.removeLayer(garisDinamis);
-            
             var ruteBaru = dapatkanRuteDinamis(posisiUser);
-            
             garisDinamis = L.polyline(ruteBaru, {
                 color: '#ffc107', weight: 5, dashArray: "5, 10", opacity: 1
             }).addTo(map);
@@ -213,7 +191,6 @@
                     else { textInfo.style.color = "orange"; }
 
                     if (!gpsActive) { map.setView(posisiSekarang, 20); gpsActive = true; }
-                    
                     perbaruiGarisDinamis(posisiSekarang);
                 },
                 (err) => { alert("Pastikan GPS aktif: " + err.message); },
@@ -223,4 +200,3 @@
     </script>
 </body>
 </html>
-```<FollowUp>
