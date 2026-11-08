@@ -37,6 +37,9 @@
     <div class="floor-controls">
         <button class="floor-btn active" onclick="window.location.href='index.html'">G</button>
         <button class="floor-btn" onclick="window.location.href='Lantai1.html'">F1</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai2.html'">F2</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai3.html'">F3</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai4.html'">F4</button>
     </div>
 
     <button class="btn-evakuasi" onclick="aktifkanEvakuasi()">🚨 JALUR EVAKUASI</button>
@@ -49,11 +52,9 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // --- 1. SETUP PETA ---
-        var pojokKiriAtas = [-7.785577, 110.393680]; 
-        var pojokKananBawah = [-7.785989, 110.394494]; 
+	var pojokKiriAtas = [-7.785577, 110.393723];
+	var pojokKananBawah = [-7.785985, 110.394398]; 
         var bounds = [pojokKiriAtas, pojokKananBawah];
-        
         var map = L.map('map', {zoomControl: false}).fitBounds(bounds);
 
         L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
@@ -62,7 +63,6 @@
 
         L.imageOverlay('peta_dasar.png', bounds, { opacity: 0.8 }).addTo(map);
 
-        // --- 2. DATA RUANGAN ---
        var ruangan = [
             { nama: "Pintu Lobi Utama", lat: -7.785653, lng: 110.394086, foto: "", info: "Pintu Keluar Utama.<br><b></b>" },
             { nama: "Pintu Barat", lat: -7.785777, lng: 110.393765, foto: "", info: "Pintu Keluar Barat.<br><b></b>" },
@@ -72,21 +72,16 @@
         ruangan.forEach(function(r) {
             var marker = L.marker([r.lat, r.lng], { opacity: 0 }).addTo(map);
             marker.bindTooltip(r.nama, { permanent: true, direction: "center", className: "label-ruang", interactive: true });
-            
             var isiPopup = "<div style='text-align:center; width:200px;'>";
-            if (r.foto && r.foto.trim() !== "") {
-                isiPopup += "<img src='" + r.foto + "' style='width:100%; border-radius:5px; margin-bottom:5px;'>";
-            }
+            if (r.foto && r.foto.trim() !== "") { isiPopup += "<img src='" + r.foto + "' style='width:100%; border-radius:5px; margin-bottom:5px;'>"; }
             isiPopup += "<h3 style='margin:5px 0; color:#007bff;'>" + r.nama + "</h3>";
             if (r.info) { isiPopup += "<p style='margin:0; font-size:13px; color:#333;'>" + r.info + "</p>"; }
             isiPopup += "</div>";
             marker.bindPopup(isiPopup);
         });
 
-        // --- 3. LOGIKA JALUR EVAKUASI GEOJSON ---
         var dataJalurGeoJSON = {
-            "type": "FeatureCollection",
-            "name": "Jalur Evakuasi",
+            "type": "FeatureCollection", "name": "Jalur Evakuasi",
             "features": [
                 { "type": "Feature", "properties": { "id": 1 }, "geometry": { "type": "LineString", "coordinates": [ [ 110.394210375275435, -7.785569430910773 ], [ 110.394125447899128, -7.785569430910773 ], [ 110.394126536711653, -7.785767594788822 ], [ 110.39371278795528, -7.785767594788822 ], [ 110.39371169914277, -7.785619516286544 ] ] } },
                 { "type": "Feature", "properties": { "id": 1 }, "geometry": { "type": "LineString", "coordinates": [ [ 110.394127625524163, -7.785767594788822 ], [ 110.394386762903153, -7.785767594788822 ] ] } }
@@ -101,10 +96,8 @@
 
         function prosesGeoJSON(geojsonData) {
             semuaTitikRute = [];
-            var features = geojsonData.features;
-            features.forEach(function(feature) {
-                var coords = feature.geometry.coordinates;
-                coords.forEach(function(c) {
+            geojsonData.features.forEach(function(feature) {
+                feature.geometry.coordinates.forEach(function(c) {
                     semuaTitikRute.push(L.latLng(c[1], c[0])); 
                 });
             });
@@ -118,7 +111,6 @@
 
         function aktifkanEvakuasi() {
             modeEvakuasiAktif = true;
-            
             if (titikKumpulMarkers.length === 0) {
                 dataTitikKumpul.forEach(function(tk) {
                     var marker = L.circleMarker([tk.lat, tk.lng], {
@@ -127,47 +119,33 @@
                     titikKumpulMarkers.push(marker);
                 });
             }
-            
             titikKumpulMarkers.forEach(function(marker) {
                 marker.addTo(map);
                 marker.openTooltip();
             });
 
             if (!layerEvakuasiStatik) {
-                layerEvakuasiStatik = L.geoJSON(dataJalurGeoJSON, {
-                    style: { color: "#dc3545", weight: 6, dashArray: "10, 10", opacity: 0.8 }
-                }).addTo(map);
+                layerEvakuasiStatik = L.geoJSON(dataJalurGeoJSON, { style: { color: "#dc3545", weight: 6, dashArray: "10, 10", opacity: 0.8 } }).addTo(map);
             }
-
             perbaruiGarisDinamis(userMarker.getLatLng());
         }
 
         function dapatkanRuteDinamis(posisiUser) {
-            var jarakTerdekat = Infinity;
-            var nodeTerdekat = null;
+            var jarakTerdekat = Infinity, nodeTerdekat = null;
             for (var i = 0; i < semuaTitikRute.length; i++) {
                 var jarak = posisiUser.distanceTo(semuaTitikRute[i]);
-                if (jarak < jarakTerdekat) {
-                    jarakTerdekat = jarak;
-                    nodeTerdekat = semuaTitikRute[i];
-                }
+                if (jarak < jarakTerdekat) { jarakTerdekat = jarak; nodeTerdekat = semuaTitikRute[i]; }
             }
-            if (nodeTerdekat) {
-                return [posisiUser, nodeTerdekat];
-            }
+            if (nodeTerdekat) return [posisiUser, nodeTerdekat];
             return [posisiUser];
         }
 
         function perbaruiGarisDinamis(posisiUser) {
             if (!modeEvakuasiAktif || posisiUser.lat === 0 || semuaTitikRute.length === 0) return;
             if (garisDinamis) map.removeLayer(garisDinamis);
-            var ruteBaru = dapatkanRuteDinamis(posisiUser);
-            garisDinamis = L.polyline(ruteBaru, {
-                color: '#ffc107', weight: 5, dashArray: "5, 10", opacity: 1
-            }).addTo(map);
+            garisDinamis = L.polyline(dapatkanRuteDinamis(posisiUser), { color: '#ffc107', weight: 5, dashArray: "5, 10", opacity: 1 }).addTo(map);
         }
 
-        // --- 4. GPS SETUP ---
         var userMarker = L.circleMarker([0,0], { radius: 8, color: 'white', fillColor: '#007bff', fillOpacity: 1 }).addTo(map);
         var accuracyCircle = L.circle([0,0], { radius: 1, color: '#007bff', weight: 1, fillOpacity: 0.2 }).addTo(map);
         var gpsActive = false;
@@ -176,25 +154,17 @@
             if (!navigator.geolocation) return alert("Browser tidak support GPS");
             navigator.geolocation.watchPosition(
                 (pos) => {
-                    var lat = pos.coords.latitude;
-                    var lng = pos.coords.longitude;
-                    var acc = pos.coords.accuracy;
-                    var posisiSekarang = L.latLng(lat, lng);
-
+                    var lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy, posisiSekarang = L.latLng(lat, lng);
                     userMarker.setLatLng(posisiSekarang);
                     accuracyCircle.setLatLng(posisiSekarang).setRadius(acc);
                     
                     var textInfo = document.getElementById('info-gps');
                     textInfo.innerHTML = "Akurasi: " + Math.round(acc) + " m";
-                    if(acc <= 10) { textInfo.style.color = "green"; } 
-                    else if (acc > 20) { textInfo.style.color = "red"; } 
-                    else { textInfo.style.color = "orange"; }
-
+                    if(acc <= 10) { textInfo.style.color = "green"; } else if (acc > 20) { textInfo.style.color = "red"; } else { textInfo.style.color = "orange"; }
                     if (!gpsActive) { map.setView(posisiSekarang, 20); gpsActive = true; }
                     perbaruiGarisDinamis(posisiSekarang);
                 },
-                (err) => { alert("Pastikan GPS aktif: " + err.message); },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                (err) => { alert("Pastikan GPS aktif: " + err.message); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
             );
         }
     </script>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Zona Kerentaan Seismik - Lantai 3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+
+        .zoom-controls { position: absolute; bottom: 100px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .zoom-btn { width: 50px; height: 50px; background: white; border: none; border-radius: 50%; font-size: 24px; font-weight: bold; color: #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .zoom-btn:active { background: #f0f0f0; }
+
+        .btn-loc { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
+
+        .btn-evakuasi { position: absolute; top: 70px; right: 10px; z-index: 1000; background: #dc3545; color: white; border: 2px solid white; padding: 12px 20px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        .info-box { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 8px 15px; border-radius: 8px; font-size: 13px; border: 1px solid #ccc; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .label-ruang { background: rgba(255, 255, 255, 0.85); border: 1px solid #333; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); cursor: pointer; }
+
+        /* CSS UNTUK TOMBOL LANTAI */
+        .floor-controls { position: absolute; top: 70px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .floor-btn { width: 45px; height: 45px; background: white; border: 2px solid #333; border-radius: 8px; font-size: 16px; font-weight: bold; color: #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
+        .floor-btn:hover { background: #f0f0f0; }
+        .floor-btn.active { background: #333; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <div class="info-box" id="info-gps">Menunggu GPS...</div>
+
+    <!-- TOMBOL NAVIGASI LANTAI (F3 Aktif) -->
+    <div class="floor-controls">
+        <button class="floor-btn" onclick="window.location.href='index.html'">G</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai1.html'">F1</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai2.html'">F2</button>
+        <button class="floor-btn active" onclick="window.location.href='Lantai3.html'">F3</button>
+        <button class="floor-btn" onclick="window.location.href='Lantai4.html'">F4</button>
+    </div>
+
+    <button class="btn-evakuasi" onclick="aktifkanEvakuasi()">🚨 JALUR EVAKUASI</button>
+    <button class="btn-loc" onclick="lacakSaya()">📍 Posisi Saya</button>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="map.zoomIn()">+</button>
+        <button class="zoom-btn" onclick="map.zoomOut()">−</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+	var pojokKiriAtas = [-7.785568, 110.393712];
+	var pojokKananBawah = [-7.785992, 110.394453];
+        var bounds = [pojokKiriAtas, pojokKananBawah];
+        var map = L.map('map', {zoomControl: false}).fitBounds(bounds);
+
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '© Google Maps'
+        }).addTo(map);
+
+        L.imageOverlay('resonansi2.png', bounds, { opacity: 0.8 }).addTo(map);
+
+       var ruangan = [
+            { nama: "Tangga Utama", lat: -7.7858, lng: 110.394086, foto: "", info: "Tangga Keluar Utama.<br><b></b>" },
+            { nama: "Tangga Barat", lat: -7.785777, lng: 110.393765, foto: "", info: "Tangga Keluar Barat.<br><b></b>" },
+            { nama: "Tangga Timur", lat: -7.785775, lng: 110.394386, foto: " ", info: "Tangga Keluar Timur.<br><b></b>" }
+        ];
+
+        ruangan.forEach(function(r) {
+            var marker = L.marker([r.lat, r.lng], { opacity: 0 }).addTo(map);
+            marker.bindTooltip(r.nama, { permanent: true, direction: "center", className: "label-ruang", interactive: true });
+            var isiPopup = "<div style='text-align:center; width:200px;'>";
+            if (r.foto && r.foto.trim() !== "") { isiPopup += "<img src='" + r.foto + "' style='width:100%; border-radius:5px; margin-bottom:5px;'>"; }
+            isiPopup += "<h3 style='margin:5px 0; color:#007bff;'>" + r.nama + "</h3>";
+            if (r.info) { isiPopup += "<p style='margin:0; font-size:13px; color:#333;'>" + r.info + "</p>"; }
+            isiPopup += "</div>";
+            marker.bindPopup(isiPopup);
+        });
+
+        var dataJalurGeoJSON = {
+            "type": "FeatureCollection", "name": "Jalur Evakuasi",
+            "features": [{ "type": "Feature", "properties": { "id": 1 }, "geometry": { "type": "LineString", "coordinates": [ [ 110.393769613621444, -7.785746214745856 ], [ 110.393769613621444, -7.785768605528149 ], [ 110.394371980276759, -7.785769697761431 ], [ 110.394371980276759, -7.785801372526625 ] ] } }
+            ]
+        };
+
+        var semuaTitikRute = [];
+        var dataTitikKumpul = [
+        ];
+
+        function prosesGeoJSON(geojsonData) {
+            semuaTitikRute = [];
+            geojsonData.features.forEach(function(feature) {
+                feature.geometry.coordinates.forEach(function(c) {
+                    semuaTitikRute.push(L.latLng(c[1], c[0])); 
+                });
+            });
+        }
+        prosesGeoJSON(dataJalurGeoJSON);
+
+        var layerEvakuasiStatik;
+        var garisDinamis;
+        var modeEvakuasiAktif = false;
+        var titikKumpulMarkers = []; 
+
+        function aktifkanEvakuasi() {
+            modeEvakuasiAktif = true;
+            if (titikKumpulMarkers.length === 0) {
+                dataTitikKumpul.forEach(function(tk) {
+                    var marker = L.circleMarker([tk.lat, tk.lng], {
+                        radius: 12, color: 'white', fillColor: '#28a745', fillOpacity: 1, weight: 3
+                    }).bindTooltip("<b>" + tk.label + "</b>", { permanent: false, direction: "top" });
+                    titikKumpulMarkers.push(marker);
+                });
+            }
+            titikKumpulMarkers.forEach(function(marker) { marker.addTo(map); marker.openTooltip(); });
+
+            if (!layerEvakuasiStatik) {
+                layerEvakuasiStatik = L.geoJSON(dataJalurGeoJSON, { style: { color: "#dc3545", weight: 6, dashArray: "10, 10", opacity: 0.8 } }).addTo(map);
+            }
+            perbaruiGarisDinamis(userMarker.getLatLng());
+        }
+
+        function dapatkanRuteDinamis(posisiUser) {
+            var jarakTerdekat = Infinity, nodeTerdekat = null;
+            for (var i = 0; i < semuaTitikRute.length; i++) {
+                var jarak = posisiUser.distanceTo(semuaTitikRute[i]);
+                if (jarak < jarakTerdekat) { jarakTerdekat = jarak; nodeTerdekat = semuaTitikRute[i]; }
+            }
+            if (nodeTerdekat) return [posisiUser, nodeTerdekat];
+            return [posisiUser];
+        }
+
+        function perbaruiGarisDinamis(posisiUser) {
+            if (!modeEvakuasiAktif || posisiUser.lat === 0 || semuaTitikRute.length === 0) return;
+            if (garisDinamis) map.removeLayer(garisDinamis);
+            garisDinamis = L.polyline(dapatkanRuteDinamis(posisiUser), { color: '#ffc107', weight: 5, dashArray: "5, 10", opacity: 1 }).addTo(map);
+        }
+
+        var userMarker = L.circleMarker([0,0], { radius: 8, color: 'white', fillColor: '#007bff', fillOpacity: 1 }).addTo(map);
+        var accuracyCircle = L.circle([0,0], { radius: 1, color: '#007bff', weight: 1, fillOpacity: 0.2 }).addTo(map);
+        var gpsActive = false;
+
+        function lacakSaya() {
+            if (!navigator.geolocation) return alert("Browser tidak support GPS");
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    var lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy, posisiSekarang = L.latLng(lat, lng);
+                    userMarker.setLatLng(posisiSekarang);
+                    accuracyCircle.setLatLng(posisiSekarang).setRadius(acc);
+                    
+                    var textInfo = document.getElementById('info-gps');
+                    textInfo.innerHTML = "Akurasi: " + Math.round(acc) + " m";
+                    if(acc <= 10) { textInfo.style.color = "green"; } else if (acc > 20) { textInfo.style.color = "red"; } else { textInfo.style.color = "orange"; }
+                    if (!gpsActive) { map.setView(posisiSekarang, 20); gpsActive = true; }
+                    perbaruiGarisDinamis(posisiSekarang);
+                },
+                (err) => { alert("Pastikan GPS aktif: " + err.message); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+    </script>
+</body>
+</html>
